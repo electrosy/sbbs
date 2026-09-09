@@ -94,6 +94,7 @@ FILE *         fidologfile = NULL;
 str_list_t     subject_can;
 str_list_t     twit_list;
 str_list_t     bad_areas;
+str_list_t     security_violations;
 
 fidoaddr_t     sys_faddr = {1, 1, 1, 0};    /* Default system address: 1:1/1.0 */
 sbbsecho_cfg_t cfg;
@@ -1375,6 +1376,15 @@ bool area_is_linked(unsigned area_num, const fidoaddr_t* addr)
 		if (!memcmp(addr, &cfg.area[area_num].link[i], sizeof(fidoaddr_t)))
 			return true;
 	return false;
+}
+
+void record_security_violation(const char* areatag, const fidoaddr_t* addr)
+{
+	char str[128 + 64];
+
+	SAFEPRINTF2(str, "%s %s", areatag, smb_faddrtoa(addr, NULL));
+	if (strListFind(security_violations, str, /* case_sensitive: */ false) < 0)
+		strListPush(&security_violations, str);
 }
 
 void link_area(unsigned area_num, const fidoaddr_t* addr)
@@ -3276,6 +3286,7 @@ void cleanup(void)
 		}
 		strListFree(&bad_areas);
 	}
+	strListFree(&security_violations);
 	while ((p = strListPop(&locked_bso_nodes)) != NULL) {
 		delfile(p, __LINE__);
 		free(p);
@@ -6335,6 +6346,7 @@ void import_packets(const char* inbound, nodecfg_t* inbox, bool secure)
 					lprintf(LOG_WARNING, "%s: Security violation - %s not in Area File"
 					        , areatag, smb_faddrtoa(&pkt_orig, NULL));
 					printf("Security Violation (Not in %s)\n", cfg.areafile);
+					record_security_violation(areatag, &pkt_orig);
 					bad_packet = "security";
 					continue;
 				}
@@ -7137,6 +7149,10 @@ int main(int argc, char **argv)
 
 		if (echomail)
 			lprintf(LOG_INFO, "Imported: %5lu msgs total", echomail);
+
+		for (uint u = 0; u < strListCount(security_violations); u++) {
+			lprintf(LOG_INFO, "Security Violation: %s", security_violations[u]);
+		}
 	}
 
 	if (opt_import_netmail && !terminated) {
