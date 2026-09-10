@@ -273,9 +273,6 @@
 
 - Helpful error message when passed a directory instead of a
   config or `.ini` file on the command line
-- End-of-run log summary of EchoMail security violations (area
-  tag and violating node address), so missing area links can be
-  added without scanning the full log (issue #1228)
 
 ## BinkIT
 

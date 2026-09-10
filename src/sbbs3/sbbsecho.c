@@ -78,6 +78,12 @@ bool           opt_leave_msgptrs      = false;
 bool           opt_dump_area_file     = false;
 bool           opt_retoss_badmail     = false;/* Re-toss from the badecho/unknown msg sub */
 
+typedef struct {
+	char tag[128];
+	fidoaddr_t addr;
+	uint count;
+} security_violation_t;
+
 /* statistics */
 ulong          netmail = 0; /* imported */
 ulong          echomail = 0; /* imported */
@@ -94,7 +100,8 @@ FILE *         fidologfile = NULL;
 str_list_t     subject_can;
 str_list_t     twit_list;
 str_list_t     bad_areas;
-str_list_t     security_violations;
+security_violation_t* security_violations;
+uint           security_violation_count;
 
 fidoaddr_t     sys_faddr = {1, 1, 1, 0};    /* Default system address: 1:1/1.0 */
 sbbsecho_cfg_t cfg;
@@ -1380,11 +1387,23 @@ bool area_is_linked(unsigned area_num, const fidoaddr_t* addr)
 
 void record_security_violation(const char* areatag, const fidoaddr_t* addr)
 {
-	char str[128 + 64];
+	security_violation_t* list;
+	uint u;
 
-	SAFEPRINTF2(str, "%s %s", areatag, smb_faddrtoa(addr, NULL));
-	if (strListFind(security_violations, str, /* case_sensitive: */ false) < 0)
-		strListPush(&security_violations, str);
+	for (u = 0; u < security_violation_count; u++) {
+		if (stricmp(security_violations[u].tag, areatag) == 0
+		    && memcmp(&security_violations[u].addr, addr, sizeof(fidoaddr_t)) == 0) {
+			security_violations[u].count++;
+			return;
+		}
+	}
+	if ((list = realloc(security_violations, sizeof(*list) * (security_violation_count + 1))) == NULL)
+		return;
+	security_violations = list;
+	SAFECOPY(security_violations[security_violation_count].tag, areatag);
+	security_violations[security_violation_count].addr = *addr;
+	security_violations[security_violation_count].count = 1;
+	security_violation_count++;
 }
 
 void link_area(unsigned area_num, const fidoaddr_t* addr)
@@ -3286,7 +3305,8 @@ void cleanup(void)
 		}
 		strListFree(&bad_areas);
 	}
-	strListFree(&security_violations);
+	FREE_AND_NULL(security_violations);
+	security_violation_count = 0;
 	while ((p = strListPop(&locked_bso_nodes)) != NULL) {
 		delfile(p, __LINE__);
 		free(p);
@@ -7150,8 +7170,10 @@ int main(int argc, char **argv)
 		if (echomail)
 			lprintf(LOG_INFO, "Imported: %5lu msgs total", echomail);
 
-		for (uint u = 0; u < strListCount(security_violations); u++) {
-			lprintf(LOG_INFO, "Security Violation: %s", security_violations[u]);
+		for (uint u = 0; u < security_violation_count; u++) {
+			lprintf(LOG_INFO, "Security Violation: %4u detected in %s from %s"
+			        , security_violations[u].count, security_violations[u].tag
+			        , smb_faddrtoa(&security_violations[u].addr, NULL));
 		}
 	}
 
