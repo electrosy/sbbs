@@ -461,6 +461,9 @@
   as-is, with no attribute-code interpretation. Guest users get
   default settings; per-user settings are no longer saved for
   guests
+- `fseditor.js`: `unwrap_line()` no longer throws TypeError when
+  a kludge-wrap is rejoined and the last line is spliced out
+  mid-loop (issue #1183)
 - `shell_lib.send_email()` / `send_netmail()` accept a `to` /
   `address` argument; the email-menu **A**ttachment command
   works again (regression from a v3.21 refactor)

@@ -318,11 +318,6 @@ function unwrap_line(l)
 				if(line[l+1].text.length==0) {
 					line[l].kludged=false;
 					line[l].hardcr=line[l+1].hardcr;
-					/*
-					 * TODO: If we splice out the next line,
-					 *       line[l+1] != undefined is not longer
-					 *       guaranteed...
-					 */
 					line.splice(l+1,1);
 				}
 				if(words[1].search(/\s/)!=-1)
@@ -332,6 +327,9 @@ function unwrap_line(l)
 			else
 				line[l].kludged=false;
 		}
+		/* unkludge may have spliced out line[l+1] */
+		if(line[l+1]==undefined)
+			break;
 		/* Get first word(s) of next line */
 		if(space < 1) {
 			words=null;
